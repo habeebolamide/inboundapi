@@ -41,6 +41,7 @@ class OrganizationController extends Controller
             "email" => $request->email,
             "password" => Hash::make($request->password),
             "user_type_id" => $adminType->id,
+            "user_id" => "admin_" . $organization->slug,
             "organization_id" => $organization->id,
         ]);
 

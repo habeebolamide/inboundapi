@@ -45,4 +45,11 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // User model
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
 }

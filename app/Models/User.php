@@ -49,4 +49,12 @@ class User extends Authenticatable
         return $this->belongsTo(Organization::class);
     }
 
+    public function userType()
+    {
+        return $this->belongsTo(UserType::class, 'user_type_id');
+    }
+
+     protected $with = ['organization'];
+
+
 }

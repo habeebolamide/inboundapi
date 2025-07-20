@@ -32,8 +32,8 @@ class AuthController extends Controller
             return sendError('Invalid email or password', [], 400);
         }
 
-        $success['userData'] = User::where('email', $request->email)->first();
-        $tokenResult = $success['userData']->createToken('API TOKEN');
+        $success['user'] = User::where('email', $request->email)->first();
+        $tokenResult = $success['user']->createToken('API TOKEN');
         $success['token'] = $tokenResult->plainTextToken;
 
         return sendResponse('Login Successfull', $success, 200);

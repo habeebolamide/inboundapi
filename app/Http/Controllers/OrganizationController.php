@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserType;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class OrganizationController extends Controller
@@ -52,5 +53,62 @@ class OrganizationController extends Controller
             'user' => $user,
             'organization' => $organization,
         ], 201);
+    }
+
+    public function CreateSupervisors(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'organization_id' => 'required|exists:organizations,id',
+            "supervisor_csv" => "required|file|mimes:csv|max:10240",
+        ]);
+
+        if ($validator->fails()) {
+            return sendError('Validation Error.', $validator->errors(), 400);
+        }
+
+        $path = $request->file('supervisor_csv')->getRealPath();
+        $data = array_map('str_getcsv', file($path));
+
+        $header = array_map('strtolower', $data[0]);
+        unset($data[0]); // Remove header
+
+        foreach ($data as $row) {
+            $rowData = array_combine($header, $row);
+            // return $rowData; // Debugging line, remove in production
+            $validator = Validator::make($rowData, [
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+            ]);
+
+            if ($validator->fails()) {
+                continue; // skip invalid rows or handle error
+            }
+
+            User::create([
+                'name' => $rowData['name'],
+                'email' => $rowData['email'],
+                'organization_id' => $request->organization_id,
+                'user_type_id' => 3, 
+                'user_id' => $rowData['user_id'],
+                'password' => bcrypt('12345678'), 
+            ]);
+        }
+
+        return sendResponse('Operation successfully.', [], 201);
+    }
+
+    public function getSupervisors(Request $request)
+    {
+        $organizationId = Auth::user()->organization_id;
+
+        if (!$organizationId) {
+            return sendError('Organization ID is required.', [], 400);
+        }
+
+        $supervisors = User::where('organization_id', $organizationId)
+            ->where('user_type_id', 3) 
+            ->get();
+
+        return sendResponse('Supervisors retrieved successfully.', $supervisors, 200);
     }
 }

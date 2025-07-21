@@ -57,7 +57,10 @@ return [
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
             'ignore_exceptions' => false,
         ],
-
+        'deprecations' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/laravel.log'),
+        ],
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

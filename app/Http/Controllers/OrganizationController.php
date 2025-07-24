@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Group;
 use App\Models\Organization;
 use App\Models\User;
 use App\Models\UserType;
@@ -97,7 +98,12 @@ class OrganizationController extends Controller
 
         $header = array_map('strtolower', $data[0]);
         unset($data[0]); 
-
+        $group = Group::create([
+                "name" => "Supervisors",
+                "organization_id" => $auth_user->organization_id,
+                "total_members" => 0,
+        ]);
+        $memberCount = 0;
         foreach ($data as $row) {
             $rowData = array_combine($header, $row);
             // return $rowData;
@@ -111,7 +117,7 @@ class OrganizationController extends Controller
                 continue; 
             }
 
-            User::create([
+            $user = User::create([
                 'name' => $rowData['name'],
                 'email' => $rowData['email'],
                 'organization_id' => $auth_user->organization_id,
@@ -119,7 +125,10 @@ class OrganizationController extends Controller
                 'user_id' => $rowData['user_id'],
                 'password' => Hash::make('12345678'), 
             ]);
+            $group->users()->attach($user->id);
+            $memberCount++;
         }
+        $group->update(['total_members' => $memberCount]);
 
         return sendResponse('Operation successfull.', [], 201);
     }

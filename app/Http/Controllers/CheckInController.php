@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CheckIn;
+use App\Models\AttendanceSession;
 use App\Models\Group;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -48,7 +48,7 @@ class CheckInController extends Controller
         if (!$supervisor) {
             return response()->json(['message' => 'Invalid supervisor for your organization.'], 403);
         }
-        $session = CheckIn::create(
+        $session = AttendanceSession::create(
             [
                 'group_id' => $request->group_id,
                 'start_time' => $request->start_time,
@@ -73,7 +73,7 @@ class CheckInController extends Controller
         $authUser = Auth::user();
 
     // Optionally filter sessions by organization
-    $sessions = CheckIn::with(['group', 'supervisor'])
+    $sessions = AttendanceSession::with(['group', 'supervisor'])
         ->where('organization_id', $authUser->organization_id)
         ->latest('start_time')
         ->get();
@@ -85,7 +85,7 @@ class CheckInController extends Controller
     }
     public function deleteSession($id)
     {
-        CheckIn::where('id', $id)->delete();
+        AttendanceSession::where('id', $id)->delete();
 
         return  response()->json([
             'message' => 'Session deleted successfully.',
@@ -113,7 +113,7 @@ class CheckInController extends Controller
             ], 422);
         }
 
-        $checkIn = CheckIn::where('id', $request->id)
+        $checkIn = AttendanceSession::where('id', $request->id)
             ->where('organization_id', $authUser->organization_id)
             ->first();
 
@@ -132,7 +132,7 @@ class CheckInController extends Controller
     public function delete($id)
     {
         $authUser = Auth::user();
-        $checkIn = CheckIn::where('id', $id)
+        $checkIn = AttendanceSession::where('id', $id)
             ->where('organization_id', $authUser->organization_id)
             ->first();
 

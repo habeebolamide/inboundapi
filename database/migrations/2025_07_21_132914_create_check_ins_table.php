@@ -13,16 +13,13 @@ return new class extends Migration
     {
         Schema::create('check_ins', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('group_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('supervisor_id')->constrained('users')->cascadeOnDelete();
-            $table->decimal('latitude', 10, 6);
-            $table->decimal('longitude', 10, 6);
-            $table->integer('radius')->default(50);
-            $table->string('title')->nullable();
-            $table->dateTime('start_time');
-            $table->dateTime('end_time');
-            $table->enum('status', ['scheduled', 'ongoing', 'ended', 'cancelled'])->default('scheduled');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('attendance_session_id')->constrained()->cascadeOnDelete(); // Links to the scheduled session
+            $table->timestamp('checked_in_at')->nullable();
+            $table->timestamp('checked_out_at')->nullable();
+            $table->boolean('spoofed')->default(false); // AI/logic-detected GPS spoof
+            $table->float('risk_score')->nullable(); // For fraud detection insights
+            $table->string('device_id')->nullable(); 
             $table->timestamps();
         });
     }

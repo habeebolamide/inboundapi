@@ -59,6 +59,7 @@ class CheckInController extends Controller
                 'longitude' => $request->longitude,
                 'radius' => $request->radius ?? 50,
                 'end_time' => $request->end_time,
+                'building_name' => $request->building_name,
                 'status' => 'scheduled',
             ]
         );
@@ -143,5 +144,19 @@ class CheckInController extends Controller
         $checkIn->delete();
 
         return sendResponse('Session deleted successfully.', [], 200);
+    }
+
+    public function getTodaySessions(Request $request)
+    {
+        $authUser = $request->user();
+        $today = now()->startOfDay();
+
+        $sessions = AttendanceSession::with(['group', 'supervisor'])
+            ->where('organization_id', $authUser->organization_id)
+            ->whereDate('start_time', $today)
+            ->latest('start_time')
+            ->get();
+
+        return sendResponse('Today\'s sessions retrieved successfully.', $sessions, 200);
     }
 }

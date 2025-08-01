@@ -4,7 +4,7 @@ use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
 
-Route::group(['prefix' => '/v1/auth'], function () {
+Route::group(['prefix' => 'v1/auth'], function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('register-user', [AuthController::class, 'register']);
     Route::post('send-otp', [AuthController::class, 'sendOtp']);

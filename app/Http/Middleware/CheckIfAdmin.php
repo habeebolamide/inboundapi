@@ -19,7 +19,7 @@ class CheckIfAdmin
        $user = Auth::user();
 
         // Check if user is authenticated and has usertype_id of 2
-        if (!$user || $user->user_type_id !== 2) {
+        if (!$user || $user->user_type_id !== 2 ||  $user->user_type_id !== 3) {
             return response()->json(['message' => 'Unauthorized. Admins only.'], 403);
         }
 

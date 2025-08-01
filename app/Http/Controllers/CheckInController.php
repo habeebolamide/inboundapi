@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceSession;
+use App\Models\CheckIn;
 use App\Models\Group;
 use App\Models\User;
+use Carbon\Carbon;
+use Galahad\TimezoneMapper\TimezoneMapper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -70,19 +73,69 @@ class CheckInController extends Controller
         ], 201);
     }
 
-    public function getALl() {
+    public function Supervisorcreate(Request $request){
+        $authUser = $request->user();
+        $validator = Validator::make($request->all(), [
+            // 'organization_id' => 'required|exists:organizations,id',
+            'group_id' => 'required|exists:groups,id',
+            'title' => 'nullable|string|max:255',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'radius' => 'nullable|integer|min:10|max:500',
+            'start_time' => 'required|date|after:now',
+            'end_time' => 'required|date|after:start_time',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $group = Group::where('id', $request->group_id)
+            ->where('organization_id', $authUser->organization_id)
+            ->first();
+
+        if (!$group) {
+            return response()->json(['message' => 'Invalid group for your organization.'], 403);
+        }
+
+        $session = AttendanceSession::create(
+            [
+                'group_id' => $request->group_id,
+                'start_time' => $request->start_time,
+                'supervisor_id' => Auth::id(),
+                'organization_id' => $authUser->organization_id,
+                'title' => $request->title,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'radius' => $request->radius ?? 50,
+                'end_time' => $request->end_time,
+                'building_name' => $request->building_name,
+                'status' => 'scheduled',
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Session created successfully.',
+            'data' => $session
+        ], 201);
+    }
+
+    public function getALl()
+    {
         $authUser = Auth::user();
 
-    // Optionally filter sessions by organization
-    $sessions = AttendanceSession::with(['group', 'supervisor'])
-        ->where('organization_id', $authUser->organization_id)
-        ->latest('start_time')
-        ->get();
+        $sessions = AttendanceSession::with(['group', 'supervisor'])
+            ->where('organization_id', $authUser->organization_id)
+            ->latest('start_time')
+            ->get();
 
-    return response()->json([
-        'message' => 'Sessions fetched successfully.',
-        'data' => $sessions
-    ]);
+        return response()->json([
+            'message' => 'Sessions fetched successfully.',
+            'data' => $sessions
+        ]);
     }
     public function deleteSession($id)
     {
@@ -98,7 +151,6 @@ class CheckInController extends Controller
 
         $authUser = $request->user();
         $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:check_ins,id',
             'title' => 'nullable|string|max:255',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
@@ -122,7 +174,7 @@ class CheckInController extends Controller
             return response()->json(['message' => 'Invalid check-in for your organization.'], 403);
         }
 
-        $checkIn->update($request->only(['title', 'latitude', 'longitude', 'radius', 'start_time', 'end_time']));
+        $checkIn->update($request->only(['title', 'latitude', 'longitude', 'radius', 'start_time', 'end_time', 'building_name']));
 
         return response()->json([
             'message' => 'Check-in updated successfully.',
@@ -155,8 +207,57 @@ class CheckInController extends Controller
             ->where('organization_id', $authUser->organization_id)
             ->whereDate('start_time', $today)
             ->latest('start_time')
+            ->orderBy('start_time', 'asc')
             ->get();
+        $sessions->map(function ($session) use ($authUser) {
+            // Check if the user has checked in for this session
+            $checkin = Checkin::where(['user_id' => $authUser->id, "attendance_session_id" => $session->id])
+                ->whereDate('created_at', now()->toDateString()) // Ensure it's today's check-in
+                ->first();
+
+            // Inject the check-in data (yes if checked in, no if not)
+            $session->checkin_status = $checkin ? 'yes' : 'no';
+
+            return $session;
+        });
+
 
         return sendResponse('Today\'s sessions retrieved successfully.', $sessions, 200);
+    }
+
+    public function checkIn(Request $request)
+    {
+        $session = AttendanceSession::where('id', $request->sessionId)->first();
+        $user = Auth::user();
+        $distance = calculateDistance($request->latitude, $request->longitude, $session->latitude, $session->longitude);
+
+        if ($distance >= $session->radius) {
+            return sendError("You are not within range", [], 404);
+        }
+        if ($session->status != "ongoing") {
+            return sendError("Not In Session", [], 404);
+        }
+
+        $timezoneMapper = new TimezoneMapper();
+        $mapped_timezone = $timezoneMapper->mapCoordinates($request->latitude, $request->longitude, 'Europe/London');
+        // return $mapped_timezone;
+        $currentTime = Carbon::now();
+
+        $timezoneTime = $currentTime->setTimezone($mapped_timezone);
+        $formattedTime = $timezoneTime->format('Y-m-d H:i:s');
+        // return $formattedTime;
+        if ($formattedTime < $session->start_time || $formattedTime > $session->end_time) {
+            return sendError("You are not within the session time", [], 404);
+        }
+
+        $checkin = Checkin::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                "attendance_session_id" => $request->sessionId,
+                "checked_in_at" => $formattedTime
+            ]
+        );
+
+        return sendResponse("You've checkedin successfully", $checkin, 200);
     }
 }

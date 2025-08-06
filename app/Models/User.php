@@ -42,7 +42,6 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-
     // User model
     public function organization()
     {
@@ -58,7 +57,8 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Group::class);
     }
-    protected $with = ['organization'];
+
+    protected $with = ['organization','groups'];
 
 
 }

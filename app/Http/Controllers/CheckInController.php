@@ -73,7 +73,8 @@ class CheckInController extends Controller
         ], 201);
     }
 
-    public function Supervisorcreate(Request $request){
+    public function Supervisorcreate(Request $request)
+    {
         $authUser = $request->user();
         $validator = Validator::make($request->all(), [
             // 'organization_id' => 'required|exists:organizations,id',
@@ -123,20 +124,43 @@ class CheckInController extends Controller
         ], 201);
     }
 
-    public function getALl()
+    public function getAll()
     {
-        $authUser = Auth::user();
+        $authUser = User::where('id', Auth::id())
+            ->first();
+        $groupIds = $authUser->groups()->pluck('groups.id');
 
         $sessions = AttendanceSession::with(['group', 'supervisor'])
             ->where('organization_id', $authUser->organization_id)
+            ->latest('start_time');
+
+        if ($authUser->user_type_id = 3) {
+            $sessions->where('supervisor_id', $authUser->id);
+        }else{
+            $sessions->whereIn('group_id', $groupIds);
+        }
+        return response()->json([
+            'message' => 'Sessions fetched successfully.',
+            'data' => $sessions->get()
+        ]);
+    }
+
+    public function getAllSessioForSupervisor()
+    {
+        $authUser = User::where('id', Auth::id())
+            ->first();
+
+        $sessions = AttendanceSession::with(['group', 'supervisor'])
+            ->where('organization_id', $authUser->organization_id)
+            ->where('supervisor_id', $authUser->id)
             ->latest('start_time')
             ->get();
-
         return response()->json([
             'message' => 'Sessions fetched successfully.',
             'data' => $sessions
         ]);
     }
+
     public function deleteSession($id)
     {
         AttendanceSession::where('id', $id)->delete();
@@ -260,4 +284,46 @@ class CheckInController extends Controller
 
         return sendResponse("You've checkedin successfully", $checkin, 200);
     }
+
+    public function endSession(Request $request)
+    {
+        $session = AttendanceSession::where('id', $request->sessionId)->first();
+        if (!$session) {
+            return sendError("Session not found", [], 404);
+        }
+
+        if ($session->status != "ongoing") {
+            return sendError("Session is not ongoing", [], 404);
+        }
+
+        $session->status = 'ended';
+        $session->save();
+
+        return sendResponse("Session ended successfully", $session, 200);
+    }
+
+    public function startSession(Request $request)
+    {
+        $session = AttendanceSession::where('id', $request->sessionId)->first();
+
+        if (!$session) {
+            return sendError("Session not found", [], 404);
+        }
+
+        if ($session->status != "scheduled") {
+            return sendError("Session is not scheduled", [], 404);
+        }
+
+        $currentTime = now();
+
+        if ($currentTime < $session->start_time || $currentTime > $session->end_time) {
+            return sendError("Session can only be started within the scheduled time range", [], 400);
+        }
+
+        $session->status = 'ongoing';
+        $session->save();
+
+        return sendResponse("Session started successfully", $session, 200);
+    }
+
 }
